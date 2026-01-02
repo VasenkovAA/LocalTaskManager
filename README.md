@@ -22,13 +22,6 @@ LocalTaskManager/
   build/                # каталог сборки CMake
 ```
 
-Рекомендуемый `.gitignore` (создайте `.gitignore` в корне):
-
-```gitignore
-/build/
-/data/
-```
-
 ## Требования
 
 - Docker (или Podman, который эмулирует Docker CLI)
