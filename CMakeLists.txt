@@ -56,7 +56,7 @@ endforeach()
 # ========================
 
 add_executable(task_manager
-  src/main.cxx
+  src/main.cpp
   ${ODB_GENERATED_SOURCES}
 )
 

@@ -1,45 +1,28 @@
-#ifndef LTM_TASK_HXX
-#define LTM_TASK_HXX
+#ifndef TASK_HPP
+#define TASK_HPP
 
 #include <string>
+
 #include <odb/core.hxx>
 
-// Простая модель задачи
 #pragma db object
-class task
-{
+class Task {
 public:
-  task() = default; // обязателен для ODB
-
-  task(const std::string& title,
-       const std::string& description,
-       bool completed = false)
-    : title_(title),
-      description_(description),
-      completed_(completed)
-  {
-  }
-
-  // Геттеры
-  unsigned long id() const               { return id_; }
-  const std::string& title() const       { return title_; }
-  const std::string& description() const { return description_; }
-  bool completed() const                 { return completed_; }
-
-  // Сеттеры
-  void set_title(const std::string& t)        { title_ = t; }
-  void set_description(const std::string& d)  { description_ = d; }
-  void set_completed(bool c)                  { completed_ = c; }
+  Task(std::string &title, std::string &description)
+      : title_(title), description_(description) {}
+  Task(std::string title, std::string description)
+      : title_(title), description_(description) {}
+  Task() {}
+  std::string title() const { return title_; }
+  std::string description() const { return description_; }
 
 private:
-  friend class odb::access; // даём ODB доступ к приватным полям
-
-  #pragma db id auto
-  unsigned long id_; // автоинкрементный первичный ключ
-
+#pragma db id auto
+  unsigned long id_;
   std::string title_;
   std::string description_;
-  bool completed_;
+
+  friend class odb::access;
 };
 
-#endif // LTM_TASK_HXX
+#endif // TASK_HPP
