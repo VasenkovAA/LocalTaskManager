@@ -1,53 +1,61 @@
+#include <QApplication>
+#include <QCommandLineOption>
+#include <QCommandLineParser>
+#include <QMessageBox>
 #include <iostream>
-#include <filesystem>
 
+#include "app/settings.hxx"
+#include "db/database.hxx"
+#include "gui/main_window.hxx"
 
-#include <odb/sqlite/database.hxx>
-#include <odb/transaction.hxx>
-#include <odb/schema-catalog.hxx>
-#include <odb/query.hxx>
-#include <odb/result.hxx>
+int main(int argc, char *argv[]) {
+  try {
+    QApplication app(argc, argv);
 
-#include "models/task.hxx"
-#include "task-odb.hxx"
+    QCoreApplication::setOrganizationName("LocalTaskManager");
+    QCoreApplication::setApplicationName("LocalTaskManager");
 
+    QCommandLineParser parser;
+    parser.setApplicationDescription("LocalTaskManager");
+    parser.addHelpOption();
 
-int main(){
-  try{
-    const std::string DB_DIR = "data";
-    const std::string DB_NAME = "task_database.db";
-    const std::string DB_PATH = DB_DIR + "/" + DB_NAME;
+    QCommandLineOption configOpt(
+        QStringList{"c", "config"},
+        "Path to ini config file (default: рядом с программой).", "path");
+    QCommandLineOption dbOpt(
+        QStringList{"d", "db"},
+        "Path to sqlite database file. If set, it will be saved to ini.",
+        "path");
 
-    std::filesystem::create_directories(DB_DIR);
-    bool new_db = !std::filesystem::exists(DB_PATH);
-    odb::sqlite::database db(DB_PATH, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
-    {
-      odb::transaction t(db.begin());
-      odb::schema_catalog::create_schema(db);
-      t.commit();
-    }
-    {
-      odb::transaction t(db.begin());
-      Task task_1("test1", "test1_1");
-      Task task_2("test2", "test2_1");
-      db.persist(task_1);
-      db.persist(task_2);
-      t.commit();
-    }
-    {
-      odb::transaction t(db.begin());
-      using query = odb::query<Task>;
-      using result = odb::result<Task>;
-      result r(db.query<Task>());
-      for (const Task& it : r){
-        std::cout<<it.title()<<" : "<<it.description()<<std::endl;
-      }
-      t.commit();
+    parser.addOption(configOpt);
+    parser.addOption(dbOpt);
+    parser.process(app);
+
+    QString iniPath = parser.value(configOpt).trimmed();
+    if (iniPath.isEmpty())
+      iniPath = defaultIniPath();
+
+    const QString cliDbPath = parser.value(dbOpt).trimmed();
+
+    const AppSettings st = loadOrCreateSettings(iniPath, cliDbPath);
+
+    auto opened = db::openDatabaseReadOrCreate(st.dbPath);
+
+    if (opened.createdNew) {
+      db::ensureSchemaBestEffort(*opened.db);
+      db::seedIfEmpty(*opened.db);
     }
 
-  }catch (const std::exception& e){
-    std::cerr << "ERROR: "<< e.what() << std::endl;
+    MainWindow w(opened.db);
+    w.show();
+
+    return app.exec();
+  } catch (const std::exception &e) {
+    try {
+      QMessageBox::critical(nullptr, "Fatal error", e.what());
+    } catch (...) {
+      std::cerr << "Fatal error: " << e.what() << std::endl;
+    }
     return 1;
   }
-  return 0;
-};
+}

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
 project(LocalTaskManager LANGUAGES CXX)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
 
+find_package(Qt5 REQUIRED COMPONENTS Widgets)
 # Общие настройки C++
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,6 +16,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Модели (сюда добавляешь новые заголовки с сущностями)
 set(MODEL_HEADERS
+  ${PROJECT_SOURCE_DIR}/include/models/kanban_board.hxx
+  ${PROJECT_SOURCE_DIR}/include/models/kanban_column.hxx
   ${PROJECT_SOURCE_DIR}/include/models/task.hxx
 )
 
@@ -57,7 +63,19 @@ endforeach()
 
 add_executable(task_manager
   src/main.cpp
+
+  src/app/settings.cxx
+  src/db/database.cxx
+
+  src/gui/column_list_widget.cxx
+  src/gui/main_window.cxx
+
   ${ODB_GENERATED_SOURCES}
+
+  include/app/settings.hxx
+  include/db/database.hxx
+  include/gui/column_list_widget.hxx
+  include/gui/main_window.hxx
 )
 
 target_include_directories(task_manager
@@ -66,6 +84,7 @@ target_include_directories(task_manager
     ${PROJECT_SOURCE_DIR}/include/models
     ${GENERATED_DIR}
 )
+
 
 # ========================
 #  Линковка с библиотеками
@@ -81,6 +100,7 @@ endif()
 
 target_link_libraries(task_manager
   PRIVATE
+    Qt5::Widgets
     ${ODB_LIB}
     ${ODB_SQLITE_LIB}
     ${SQLITE3_LIB}

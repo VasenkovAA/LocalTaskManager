@@ -1,0 +1,76 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "1) Docker: Rebuild container",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/dev.sh", "docker:rebuild"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "2) CMake: Reconfigure (docker)",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/dev.sh", "cmake:reconfigure"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "3) Build: CMake build (docker)",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/dev.sh", "cmake:build"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "4) Run: Host run",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/dev.sh", "run"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "5) Python: venv setup + install requirements",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/dev.sh", "venv:setup"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "6) CodingUtils: batch",
+      "type": "shell",
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/dev.sh", "CodingUtils:batch"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build+Run (1-4)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "1) Docker: Rebuild container",
+        "2) CMake: Reconfigure (docker)",
+        "3) Build: CMake build (docker)",
+        "4) Run: Host run"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "All (1-5)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "1) Docker: Rebuild container",
+        "2) CMake: Reconfigure (docker)",
+        "3) Build: CMake build (docker)",
+        "5) Python: venv setup + install requirements",
+        "4) Run: Host run"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

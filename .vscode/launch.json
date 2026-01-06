@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Task Manager (host)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/task_manager",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Build+Run (1-4)",
+      "externalConsole": false,
+      "MIMode": "gdb"
+    }
+  ]
+}
