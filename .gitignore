@@ -1,6 +1,6 @@
 /build/
 /data/
 /.venv/
-
+/venv/
 *.db
 LocalTaskManager.ini
