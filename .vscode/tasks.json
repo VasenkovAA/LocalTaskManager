@@ -70,7 +70,8 @@
         "5) Python: venv setup + install requirements",
         "4) Run: Host run"
       ],
-      "problemMatcher": []
+      "problemMatcher": [],
+      "key": "ctrl+shift+d z",
     }
   ]
 }

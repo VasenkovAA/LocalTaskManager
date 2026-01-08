@@ -31,7 +31,11 @@ namespace db
     void deleteTask(core::Id taskId) override;
 
     void setTasksOrderForColumn(core::Id columnId, const std::vector<core::Id>& orderedTaskIds) override;
-
+    
+    std::vector<core::CategoryDto> listCategories(core::Id boardId) override;
+    core::Id createCategory(core::Id boardId, const std::string& name, const std::string& color) override;
+    void deleteCategory(core::Id categoryId) override;
+    void setTaskCategory(core::Id taskId, std::optional<core::Id> categoryId) override;
   private:
     std::shared_ptr<odb::sqlite::database> db_;
   };

@@ -13,11 +13,12 @@
 #include "models/kanban_board.hxx"
 #include "models/kanban_column.hxx"
 #include "models/task.hxx"
+#include "models/task_category.hxx"
 
 #include "kanban_board-odb.hxx"
 #include "kanban_column-odb.hxx"
 #include "task-odb.hxx"
-
+#include "task_category-odb.hxx"
 namespace db
 {
   static void ensureParentDirExists(const QString& filePath)
@@ -98,9 +99,17 @@ namespace db
     db.persist(doing);
     db.persist(done);
 
+    // Категории (если хочешь seed)
+    TaskCategory bug(board.id(), "Bug", 0, "#e74c3c");
+    TaskCategory feature(board.id(), "Feature", 1, "#3498db");
+    db.persist(bug);
+    db.persist(feature);
+
     Task a(board.id(), todo.id(), "First task", "Seed", 0);
+    a.category_id(bug.id());          // опционально
     Task b(board.id(), doing.id(), "Second task", "", 0);
     Task c(board.id(), done.id(), "Third task", "", 0);
+
     db.persist(a);
     db.persist(b);
     db.persist(c);

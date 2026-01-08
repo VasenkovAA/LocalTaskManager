@@ -2,17 +2,19 @@
 #define KANBAN_COLUMN_HXX
 
 #include <string>
+#include <utility>
 #include <odb/core.hxx>
 
 #pragma db object
 #pragma db index member(board_id_)
 class KanbanColumn
 {
+  #pragma db index("idx_column_board_sort") members(board_id_, sort_order_)
 public:
-  KanbanColumn() : board_id_(0), sort_order_(0) {}
+  KanbanColumn() = default;
 
-  KanbanColumn(unsigned long board_id, const std::string& name, int sort_order = 0)
-      : board_id_(board_id), name_(name), sort_order_(sort_order) {}
+  KanbanColumn(unsigned long board_id, std::string name, int sort_order = 0)
+      : board_id_(board_id), name_(std::move(name)), sort_order_(sort_order) {}
 
   unsigned long id() const { return id_; }
 
@@ -20,7 +22,7 @@ public:
   void board_id(unsigned long v) { board_id_ = v; }
 
   const std::string& name() const { return name_; }
-  void name(const std::string& v) { name_ = v; }
+  void name(std::string v) { name_ = std::move(v); }
 
   int sort_order() const { return sort_order_; }
   void sort_order(int v) { sort_order_ = v; }
@@ -28,12 +30,12 @@ public:
 private:
   friend class odb::access;
 
-#pragma db id auto
-  unsigned long id_;
+  #pragma db id auto
+  unsigned long id_{0};
 
-  unsigned long board_id_;
+  unsigned long board_id_{0};
   std::string name_;
-  int sort_order_;
+  int sort_order_{0};
 };
 
-#endif //KANBAN_BOARD_HXX
+#endif // KANBAN_COLUMN_HXX

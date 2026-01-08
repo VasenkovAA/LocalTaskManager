@@ -19,6 +19,7 @@ set(MODEL_HEADERS
   ${PROJECT_SOURCE_DIR}/include/models/kanban_board.hxx
   ${PROJECT_SOURCE_DIR}/include/models/kanban_column.hxx
   ${PROJECT_SOURCE_DIR}/include/models/task.hxx
+  ${PROJECT_SOURCE_DIR}/include/models/task_category.hxx
 )
 
 set(GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)

@@ -2,5 +2,6 @@
 /data/
 /.venv/
 /venv/
+/docs/
 *.db
 LocalTaskManager.ini
