@@ -76,6 +76,9 @@ add_executable(task_manager
   include/db/database.hxx
   include/gui/column_list_widget.hxx
   include/gui/main_window.hxx
+  src/db/odb_kanban_api.cxx
+  include/core/kanban_api.hxx
+  include/db/odb_kanban_api.hxx
 )
 
 target_include_directories(task_manager

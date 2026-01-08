@@ -61,4 +61,4 @@ private:
   bool archived_;
 };
 
-#endif //KANBAN_BOARD_HXX
+#endif //TASK_HXX

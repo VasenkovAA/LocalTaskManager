@@ -14,6 +14,6 @@ class Tag{
 
 
 
-}
+};
 
-#endif TAG_HXX
+#endif //TAG_HXX
