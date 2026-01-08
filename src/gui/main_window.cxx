@@ -1,8 +1,10 @@
 #include "gui/main_window.hxx"
+
 #include "gui/column_list_widget.hxx"
+#include "gui/kanban_column_widget.hxx"
+#include "gui/task_edit_dialog.hxx"
 
 #include <QComboBox>
-#include <QDir>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
@@ -23,10 +25,30 @@
 #include "models/kanban_board.hxx"
 #include "models/kanban_column.hxx"
 #include "models/task.hxx"
+#include "models/task_category.hxx"
 
 #include "kanban_board-odb.hxx"
 #include "kanban_column-odb.hxx"
 #include "task-odb.hxx"
+#include "task_category-odb.hxx"
+
+static QColor safeColor(const QString& s)
+{
+  QColor c(s);
+  if (!c.isValid())
+    return QColor();
+  return c;
+}
+
+static QColor contrastTextColor(const QColor& bg)
+{
+  // простая оценка яркости
+  const int r = bg.red();
+  const int g = bg.green();
+  const int b = bg.blue();
+  const int y = (r * 299 + g * 587 + b * 114) / 1000;
+  return (y < 128) ? Qt::white : Qt::black;
+}
 
 MainWindow::MainWindow(std::shared_ptr<odb::sqlite::database> db, QWidget* parent)
   : QMainWindow(parent), db_(std::move(db))
@@ -120,47 +142,88 @@ void MainWindow::clearColumnsUI()
   }
 }
 
-QWidget* MainWindow::makeColumnWidget(const KanbanColumn& col)
+void MainWindow::reloadCategoriesForBoard(unsigned long boardId)
 {
-  auto* w = new QWidget(columnsHost_);
-  w->setMinimumWidth(280);
-  w->setStyleSheet("background: #f6f6f6; border: 1px solid #ddd; border-radius: 6px;");
+  categoryColors_.clear();
+  categoryNames_.clear();
 
-  auto* v = new QVBoxLayout(w);
-  v->setContentsMargins(8, 8, 8, 8);
-  v->setSpacing(8);
+  if (boardId == 0 || !db_)
+    return;
 
-  auto* headerRow = new QHBoxLayout();
-  auto* title = new QLabel(QString::fromStdString(col.name()), w);
-  title->setStyleSheet("font-weight: 600; font-size: 14px;");
+  odb::transaction t(db_->begin());
+  using CQ = odb::query<TaskCategory>;
 
-  auto* addTaskBtn = new QPushButton("+", w);
-  addTaskBtn->setFixedWidth(32);
+  std::vector<TaskCategory> cats;
+  for (const auto& c : db_->query<TaskCategory>(CQ::board_id == boardId))
+    cats.push_back(c);
 
-  auto* delColBtn = new QPushButton("×", w);
-  delColBtn->setFixedWidth(32);
+  std::sort(cats.begin(), cats.end(), [](const TaskCategory& a, const TaskCategory& b)
+  {
+    if (a.sort_order() != b.sort_order())
+      return a.sort_order() < b.sort_order();
+    return a.id() < b.id();
+  });
 
-  headerRow->addWidget(title, 1);
-  headerRow->addWidget(addTaskBtn);
-  headerRow->addWidget(delColBtn);
+  for (const auto& c : cats)
+  {
+    categoryNames_[c.id()] = QString::fromStdString(c.name());
+    categoryColors_[c.id()] = QString::fromStdString(c.color());
+  }
 
-  v->addLayout(headerRow);
+  t.commit();
+}
 
-  auto* list = new ColumnListWidget(col.id(), w);
-  v->addWidget(list, 1);
+QString MainWindow::makeTaskToolTip(const QString& desc, qulonglong categoryId) const
+{
+  QString catLine;
+  if (categoryId != 0)
+  {
+    auto it = categoryNames_.find(static_cast<unsigned long>(categoryId));
+    catLine = (it != categoryNames_.end()) ? it->second : QString("id=%1").arg(categoryId);
+  }
+  else
+  {
+    catLine = "None";
+  }
 
-  connect(addTaskBtn, &QPushButton::clicked, this, [this, colId = col.id()] { addTaskToColumn(colId); });
-  connect(delColBtn, &QPushButton::clicked, this, [this, colId = col.id()] { deleteColumn(colId); });
+  QString out;
+  out += QString("Category: %1").arg(catLine);
+  if (!desc.trimmed().isEmpty())
+    out += "\n\n" + desc.trimmed();
+  return out;
+}
 
-  connect(list, &ColumnListWidget::taskDeleteRequested, this,
-          [this](qulonglong taskId, unsigned long) { deleteTask(static_cast<unsigned long>(taskId)); });
+void MainWindow::applyTaskStyle(QListWidgetItem* item) const
+{
+  if (!item)
+    return;
 
-  connect(list, &ColumnListWidget::taskMoved, this,
-          [this](qulonglong taskId, unsigned long fromColumnId, unsigned long toColumnId)
-          { onTaskMoved(static_cast<unsigned long>(taskId), fromColumnId, toColumnId); });
+  const qulonglong catId = item->data(kRoleCategoryId).toULongLong();
+  if (catId == 0)
+  {
+    item->setBackground(QBrush());
+    item->setForeground(QBrush());
+    return;
+  }
 
-  columnLists_[col.id()] = list;
-  return w;
+  const auto it = categoryColors_.find(static_cast<unsigned long>(catId));
+  if (it == categoryColors_.end())
+  {
+    item->setBackground(QBrush());
+    item->setForeground(QBrush());
+    return;
+  }
+
+  const QColor bg = safeColor(it->second);
+  if (!bg.isValid())
+  {
+    item->setBackground(QBrush());
+    item->setForeground(QBrush());
+    return;
+  }
+
+  item->setBackground(QBrush(bg));
+  item->setForeground(QBrush(contrastTextColor(bg)));
 }
 
 void MainWindow::loadBoardsIntoCombo()
@@ -211,6 +274,8 @@ void MainWindow::reloadBoardView()
 
   try
   {
+    reloadCategoriesForBoard(boardId);
+
     odb::transaction t(db_->begin());
 
     using ColQ = odb::query<KanbanColumn>;
@@ -221,7 +286,12 @@ void MainWindow::reloadBoardView()
       cols.push_back(c);
 
     std::sort(cols.begin(), cols.end(),
-              [](const KanbanColumn& a, const KanbanColumn& b) { return a.sort_order() < b.sort_order(); });
+              [](const KanbanColumn& a, const KanbanColumn& b)
+              {
+                if (a.sort_order() != b.sort_order())
+                  return a.sort_order() < b.sort_order();
+                return a.id() < b.id();
+              });
 
     if (cols.empty())
     {
@@ -232,7 +302,38 @@ void MainWindow::reloadBoardView()
     }
 
     for (const auto& col : cols)
-      columnsLayout_->addWidget(makeColumnWidget(col));
+    {
+      auto* colW = new KanbanColumnWidget(boardId,
+                                          col.id(),
+                                          QString::fromStdString(col.name()),
+                                          columnsHost_);
+
+      columnsLayout_->addWidget(colW);
+
+      ColumnListWidget* list = colW->list();
+      columnLists_[col.id()] = list;
+
+      connect(colW, &KanbanColumnWidget::addTaskRequested, this,
+              [this](unsigned long colId){ addTaskToColumn(colId); });
+
+      connect(colW, &KanbanColumnWidget::deleteColumnRequested, this,
+              [this](unsigned long colId){ deleteColumn(colId); });
+
+      connect(colW, &KanbanColumnWidget::columnMoveRequested, this,
+              [this](unsigned long fromId, unsigned long toId, bool before)
+              { onColumnMoveRequested(fromId, toId, before); });
+
+      connect(list, &ColumnListWidget::taskDeleteRequested, this,
+              [this](qulonglong taskId, unsigned long) { deleteTask(static_cast<unsigned long>(taskId)); });
+
+      connect(list, &ColumnListWidget::taskMoved, this,
+              [this](qulonglong taskId, unsigned long fromColumnId, unsigned long toColumnId)
+              { onTaskMoved(static_cast<unsigned long>(taskId), fromColumnId, toColumnId); });
+
+      connect(list, &ColumnListWidget::taskEditRequested, this,
+              [this](qulonglong taskId) { editTask(static_cast<unsigned long>(taskId)); });
+    }
+
     columnsLayout_->addStretch(1);
 
     using TaskQ = odb::query<Task>;
@@ -247,7 +348,9 @@ void MainWindow::reloadBoardView()
               {
                 if (a.column_id() != b.column_id())
                   return a.column_id() < b.column_id();
-                return a.sort_order() < b.sort_order();
+                if (a.sort_order() != b.sort_order())
+                  return a.sort_order() < b.sort_order();
+                return a.id() < b.id();
               });
 
     for (const auto& task : tasks)
@@ -257,7 +360,16 @@ void MainWindow::reloadBoardView()
         continue;
 
       auto* item = new QListWidgetItem(QString::fromStdString(task.title()));
-      item->setData(Qt::UserRole, QVariant::fromValue<qulonglong>(task.id()));
+      item->setData(kRoleTaskId, QVariant::fromValue<qulonglong>(task.id()));
+
+      qulonglong catId = 0;
+      if (!task.category_id().null())
+        catId = static_cast<qulonglong>(task.category_id().get());
+      item->setData(kRoleCategoryId, QVariant::fromValue<qulonglong>(catId));
+
+      item->setToolTip(makeTaskToolTip(QString::fromStdString(task.description()), catId));
+      applyTaskStyle(item);
+
       it->second->addItem(item);
     }
 
@@ -269,7 +381,6 @@ void MainWindow::reloadBoardView()
                           QString("Failed to load board view: %1").arg(e.what()));
   }
 }
-
 
 void MainWindow::addBoard()
 {
@@ -320,6 +431,10 @@ void MainWindow::deleteCurrentBoard()
     using CQ = odb::query<KanbanColumn>;
     for (const auto& col : db_->query<KanbanColumn>(CQ::board_id == boardId))
       db_->erase<KanbanColumn>(col.id());
+
+    using CatQ = odb::query<TaskCategory>;
+    for (const auto& c : db_->query<TaskCategory>(CatQ::board_id == boardId))
+      db_->erase<TaskCategory>(c.id());
 
     db_->erase<KanbanBoard>(boardId);
 
@@ -399,7 +514,12 @@ void MainWindow::deleteColumn(unsigned long columnId)
       cols.push_back(c);
 
     std::sort(cols.begin(), cols.end(),
-              [](const KanbanColumn& a, const KanbanColumn& b) { return a.sort_order() < b.sort_order(); });
+              [](const KanbanColumn& a, const KanbanColumn& b)
+              {
+                if (a.sort_order() != b.sort_order())
+                  return a.sort_order() < b.sort_order();
+                return a.id() < b.id();
+              });
 
     for (int i = 0; i < (int)cols.size(); ++i)
     {
@@ -480,6 +600,50 @@ void MainWindow::deleteTask(unsigned long taskId)
   reloadBoardView();
 }
 
+void MainWindow::editTask(unsigned long taskId)
+{
+  if (!db_ || taskId == 0)
+    return;
+
+  auto edited = TaskEditDialog::editTask(db_, taskId, this);
+  if (!edited.has_value())
+    return;
+
+  // найти элемент в UI
+  QListWidgetItem* foundItem = nullptr;
+  ColumnListWidget* foundList = nullptr;
+
+  for (auto& [colId, list] : columnLists_)
+  {
+    if (!list) continue;
+    if (auto* it = list->findItemByTaskId(taskId))
+    {
+      foundItem = it;
+      foundList = list;
+      (void)colId;
+      break;
+    }
+  }
+
+  if (!foundItem || !foundList)
+  {
+    // если не нашли — проще перезагрузить
+    reloadBoardView();
+    return;
+  }
+
+  foundItem->setText(edited->title);
+
+  const qulonglong newCatId = edited->categoryId.has_value()
+    ? static_cast<qulonglong>(*edited->categoryId)
+    : 0;
+
+  foundItem->setData(kRoleCategoryId, QVariant::fromValue<qulonglong>(newCatId));
+  foundItem->setToolTip(makeTaskToolTip(edited->description, newCatId));
+  reloadCategoriesForBoard(currentBoardId());
+  applyTaskStyle(foundItem);
+}
+
 void MainWindow::renumberTasksInList(unsigned long columnId, ColumnListWidget* list)
 {
   if (!list)
@@ -491,7 +655,7 @@ void MainWindow::renumberTasksInList(unsigned long columnId, ColumnListWidget* l
     if (!it)
       continue;
 
-    const unsigned long taskId = static_cast<unsigned long>(it->data(Qt::UserRole).toULongLong());
+    const unsigned long taskId = static_cast<unsigned long>(it->data(kRoleTaskId).toULongLong());
     std::unique_ptr<Task> task(db_->load<Task>(taskId));
     task->column_id(columnId);
     task->sort_order(row);
@@ -499,7 +663,7 @@ void MainWindow::renumberTasksInList(unsigned long columnId, ColumnListWidget* l
   }
 }
 
-void MainWindow::onTaskMoved(unsigned long, unsigned long fromColumnId, unsigned long toColumnId)
+void MainWindow::onTaskMoved(unsigned long taskId, unsigned long fromColumnId, unsigned long toColumnId)
 {
   try
   {
@@ -520,10 +684,92 @@ void MainWindow::onTaskMoved(unsigned long, unsigned long fromColumnId, unsigned
       renumberTasksInList(toColumnId, toList);
 
     t.commit();
+
+    // обновить стиль карточки в новом месте (цвет берется из данных item)
+    if (toList)
+    {
+      if (auto* it = toList->findItemByTaskId(taskId))
+        applyTaskStyle(it);
+    }
   }
   catch (const std::exception& e)
   {
     QMessageBox::critical(this, "Database Error", QString("Failed to move task: %1").arg(e.what()));
+    reloadBoardView();
+  }
+}
+
+void MainWindow::onColumnMoveRequested(unsigned long fromColumnId, unsigned long toColumnId, bool insertBefore)
+{
+  if (!columnsLayout_ || fromColumnId == 0 || toColumnId == 0 || fromColumnId == toColumnId)
+    return;
+
+  // найти индексы виджетов колонок в layout (игнорируем stretch в конце)
+  const int count = columnsLayout_->count();
+  int fromIndex = -1;
+  int toIndex = -1;
+
+  for (int i = 0; i < count; ++i)
+  {
+    auto* w = columnsLayout_->itemAt(i) ? columnsLayout_->itemAt(i)->widget() : nullptr;
+    auto* colW = qobject_cast<KanbanColumnWidget*>(w);
+    if (!colW) continue;
+
+    if (colW->columnId() == fromColumnId)
+      fromIndex = i;
+    if (colW->columnId() == toColumnId)
+      toIndex = i;
+  }
+
+  if (fromIndex < 0 || toIndex < 0)
+    return;
+
+  int insertIndex = insertBefore ? toIndex : (toIndex + 1);
+  if (fromIndex < insertIndex)
+    insertIndex -= 1;
+
+  QLayoutItem* taken = columnsLayout_->takeAt(fromIndex);
+  if (!taken)
+    return;
+
+  QWidget* w = taken->widget();
+  delete taken;
+
+  if (!w)
+    return;
+
+  columnsLayout_->insertWidget(insertIndex, w);
+
+  persistColumnsOrder();
+}
+
+void MainWindow::persistColumnsOrder()
+{
+  try
+  {
+    odb::transaction t(db_->begin());
+
+    int order = 0;
+    for (int i = 0; i < columnsLayout_->count(); ++i)
+    {
+      auto* w = columnsLayout_->itemAt(i) ? columnsLayout_->itemAt(i)->widget() : nullptr;
+      auto* colW = qobject_cast<KanbanColumnWidget*>(w);
+      if (!colW) continue;
+
+      const unsigned long colId = colW->columnId();
+      std::unique_ptr<KanbanColumn> col(db_->load<KanbanColumn>(colId));
+      if (!col)
+        continue;
+
+      col->sort_order(order++);
+      db_->update(*col);
+    }
+
+    t.commit();
+  }
+  catch (const std::exception& e)
+  {
+    QMessageBox::critical(this, "Database Error", QString("Failed to reorder columns: %1").arg(e.what()));
     reloadBoardView();
   }
 }

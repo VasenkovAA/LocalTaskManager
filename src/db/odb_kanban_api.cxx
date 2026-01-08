@@ -208,7 +208,6 @@ void OdbKanbanApi::deleteBoard(core::Id boardId) {
   for (const auto &col : db_->query<KanbanColumn>(CQ::board_id == bid))
     db_->erase<KanbanColumn>(col.id());
 
-  db_->erase<KanbanBoard>(bid);
   using CatQ = odb::query<TaskCategory>;
   for (const auto& c : db_->query<TaskCategory>(CatQ::board_id == bid))
     db_->erase<TaskCategory>(c.id());

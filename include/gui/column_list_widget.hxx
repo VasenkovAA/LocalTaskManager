@@ -4,6 +4,9 @@
 
 static constexpr const char* kTaskMime = "application/x-localtaskmanager-task";
 
+static constexpr int kRoleTaskId     = Qt::UserRole;
+static constexpr int kRoleCategoryId = Qt::UserRole + 1;
+
 class ColumnListWidget final : public QListWidget
 {
   Q_OBJECT
@@ -18,6 +21,7 @@ public:
 signals:
   void taskMoved(qulonglong taskId, unsigned long fromColumnId, unsigned long toColumnId);
   void taskDeleteRequested(qulonglong taskId, unsigned long columnId);
+  void taskEditRequested(qulonglong taskId);
 
 protected:
   QStringList mimeTypes() const override;

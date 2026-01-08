@@ -21,6 +21,14 @@ ColumnListWidget::ColumnListWidget(unsigned long columnId, QWidget* parent)
 
   setContextMenuPolicy(Qt::CustomContextMenu);
   connect(this, &QListWidget::customContextMenuRequested, this, &ColumnListWidget::onContextMenu);
+
+  connect(this, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* it)
+  {
+    if (!it) return;
+    const qulonglong taskId = it->data(kRoleTaskId).toULongLong();
+    if (taskId != 0)
+      emit taskEditRequested(taskId);
+  });
 }
 
 unsigned long ColumnListWidget::columnId() const
@@ -33,7 +41,7 @@ QListWidgetItem* ColumnListWidget::findItemByTaskId(qulonglong taskId) const
   for (int i = 0; i < count(); ++i)
   {
     auto* it = item(i);
-    if (it && it->data(Qt::UserRole).toULongLong() == taskId)
+    if (it && it->data(kRoleTaskId).toULongLong() == taskId)
       return it;
   }
   return nullptr;
@@ -50,8 +58,11 @@ QMimeData* ColumnListWidget::mimeData(const QList<QListWidgetItem*> items) const
     return nullptr;
 
   auto* it = items.front();
-  const qulonglong taskId = it->data(Qt::UserRole).toULongLong();
+  const qulonglong taskId = it->data(kRoleTaskId).toULongLong();
   const QString title = it->text();
+
+  // сохраняем categoryId чтобы при переносе между колонками не терять цвет
+  const qulonglong catId = it->data(kRoleCategoryId).toULongLong();
 
   QByteArray bytes;
   QDataStream out(&bytes, QIODevice::WriteOnly);
@@ -60,6 +71,7 @@ QMimeData* ColumnListWidget::mimeData(const QList<QListWidgetItem*> items) const
   out << taskId;
   out << static_cast<qulonglong>(columnId_);
   out << title;
+  out << catId;
 
   auto* md = new QMimeData();
   md->setData(QString::fromLatin1(kTaskMime), bytes);
@@ -98,9 +110,13 @@ void ColumnListWidget::dropEvent(QDropEvent* event)
   qulonglong taskId = 0;
   qulonglong fromCol = 0;
   QString title;
+  qulonglong catId = 0;
+
   in >> taskId;
   in >> fromCol;
   in >> title;
+  if (!in.atEnd())
+    in >> catId;
 
   auto* src = qobject_cast<ColumnListWidget*>(event->source());
   const unsigned long fromColumnId = static_cast<unsigned long>(fromCol);
@@ -142,8 +158,16 @@ void ColumnListWidget::dropEvent(QDropEvent* event)
   }
   else
   {
+    // попытаться взять categoryId у исходного элемента (надежнее, чем из mime, если src есть)
+    if (src)
+    {
+      if (auto* old = src->findItemByTaskId(taskId))
+        catId = old->data(kRoleCategoryId).toULongLong();
+    }
+
     auto* newItem = new QListWidgetItem(title);
-    newItem->setData(Qt::UserRole, QVariant::fromValue<qulonglong>(taskId));
+    newItem->setData(kRoleTaskId, QVariant::fromValue<qulonglong>(taskId));
+    newItem->setData(kRoleCategoryId, QVariant::fromValue<qulonglong>(catId));
     insertItem(dropRow, newItem);
     setCurrentItem(newItem);
 
@@ -166,11 +190,15 @@ void ColumnListWidget::onContextMenu(const QPoint& pos)
   if (!it)
     return;
 
-  const qulonglong taskId = it->data(Qt::UserRole).toULongLong();
+  const qulonglong taskId = it->data(kRoleTaskId).toULongLong();
 
   QMenu menu(this);
-  QAction* del = menu.addAction("Delete task");
+  QAction* edit = menu.addAction("Open / Edit...");
+  QAction* del  = menu.addAction("Delete task");
+
   QAction* chosen = menu.exec(mapToGlobal(pos));
-  if (chosen == del)
+  if (chosen == edit)
+    emit taskEditRequested(taskId);
+  else if (chosen == del)
     emit taskDeleteRequested(taskId, columnId_);
 }
