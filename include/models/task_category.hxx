@@ -1,5 +1,5 @@
-#ifndef KANBAN_COLUMN_HXX
-#define KANBAN_COLUMN_HXX
+#ifndef TASK_CATEGORY_HXX
+#define TASK_CATEGORY_HXX
 
 #include <odb/core.hxx>
 #include <string>
@@ -7,13 +7,16 @@
 
 #pragma db object
 #pragma db index member(board_id_)
-class KanbanColumn {
-#pragma db index("idx_column_board_sort") members(board_id_, sort_order_)
-public:
-  KanbanColumn() = default;
 
-  KanbanColumn(unsigned long board_id, std::string name, int sort_order = 0)
-      : board_id_(board_id), name_(std::move(name)), sort_order_(sort_order) {}
+class TaskCategory {
+#pragma db index("idx_cat_board_sort") members(board_id_, sort_order_)
+public:
+  TaskCategory() = default;
+
+  TaskCategory(unsigned long board_id, std::string name, int sort_order = 0,
+               std::string color = {})
+      : board_id_(board_id), name_(std::move(name)), sort_order_(sort_order),
+        color_(std::move(color)) {}
 
   unsigned long id() const { return id_; }
 
@@ -26,6 +29,9 @@ public:
   int sort_order() const { return sort_order_; }
   void sort_order(int v) { sort_order_ = v; }
 
+  const std::string &color() const { return color_; }
+  void color(std::string v) { color_ = std::move(v); }
+
 private:
   friend class odb::access;
 
@@ -35,6 +41,7 @@ private:
   unsigned long board_id_{0};
   std::string name_;
   int sort_order_{0};
+  std::string color_; // пусто => “без цвета”
 };
 
-#endif // KANBAN_COLUMN_HXX
+#endif // TASK_CATEGORY_HXX

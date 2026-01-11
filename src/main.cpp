@@ -1,8 +1,7 @@
 #include <QApplication>
 #include <QCommandLineOption>
 #include <QCommandLineParser>
-#include <QMessageBox>
-#include <iostream>
+#include <QString>
 
 #include "app/settings.hxx"
 #include "db/database.hxx"
@@ -11,12 +10,10 @@
 int main(int argc, char *argv[]) {
   try {
     QApplication app(argc, argv);
-
-    QCoreApplication::setOrganizationName("LocalTaskManager");
-    QCoreApplication::setApplicationName("LocalTaskManager");
+    QApplication::setOrganizationName("LocalTaskManager");
+    QApplication::setApplicationName("LocalTaskManager");
 
     QCommandLineParser parser;
-    parser.setApplicationDescription("LocalTaskManager");
     parser.addHelpOption();
 
     QCommandLineOption configOpt(
@@ -44,6 +41,9 @@ int main(int argc, char *argv[]) {
     if (opened.createdNew) {
       db::ensureSchemaBestEffort(*opened.db);
       db::seedIfEmpty(*opened.db);
+    } else {
+
+      db::seedIfEmpty(*opened.db);
     }
 
     MainWindow w(opened.db);
@@ -51,11 +51,7 @@ int main(int argc, char *argv[]) {
 
     return app.exec();
   } catch (const std::exception &e) {
-    try {
-      QMessageBox::critical(nullptr, "Fatal error", e.what());
-    } catch (...) {
-      std::cerr << "Fatal error: " << e.what() << std::endl;
-    }
+    fprintf(stderr, "Fatal error: %s\n", e.what());
     return 1;
   }
 }

@@ -2,12 +2,12 @@
 
 #include <QString>
 
-struct AppSettings
-{
+struct AppSettings {
   QString iniPath;
   QString dbPath;
 };
 
 QString defaultIniPath();
 
-AppSettings loadOrCreateSettings(const QString& iniPath, const QString& cliDbPath);
+AppSettings loadOrCreateSettings(const QString &iniPath,
+                                 const QString &cliDbPath);
