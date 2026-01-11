@@ -10,25 +10,23 @@
 
 static QString appDir() { return QCoreApplication::applicationDirPath(); }
 
-static QString ensureDirOrThrow(const QString& p)
-{
+static QString ensureDirOrThrow(const QString &p) {
   QDir d(p);
   if (!d.exists() && !d.mkpath("."))
-    throw std::runtime_error(("Failed to create directory: " + p).toStdString());
+    throw std::runtime_error(
+        ("Failed to create directory: " + p).toStdString());
   return d.absolutePath();
 }
 
-QString defaultIniPath()
-{
-  const QString cfgDir =
-      ensureDirOrThrow(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation));
+QString defaultIniPath() {
+  const QString cfgDir = ensureDirOrThrow(
+      QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation));
   return QDir(cfgDir).filePath("LocalTaskManager.ini");
 }
 
-static QString defaultDbPathForIniDir(const QString& /*iniPath*/)
-{
-  const QString dataDir =
-      ensureDirOrThrow(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
+static QString defaultDbPathForIniDir(const QString & /*iniPath*/) {
+  const QString dataDir = ensureDirOrThrow(
+      QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
   return QDir(dataDir).filePath("task_database.db");
 }
 

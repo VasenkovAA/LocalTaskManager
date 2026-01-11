@@ -1,5 +1,6 @@
 #include "gui/task_edit_dialog.hxx"
 
+#include <QColorDialog>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
@@ -10,7 +11,6 @@
 #include <QPushButton>
 #include <QTextEdit>
 #include <QVBoxLayout>
-#include <QColorDialog>
 
 #include <odb/sqlite/database.hxx>
 #include <odb/transaction.hxx>
@@ -24,23 +24,21 @@
 // ...
 
 TaskEditDialog::TaskEditDialog(std::shared_ptr<odb::sqlite::database> db,
-                               unsigned long taskId,
-                               QWidget* parent)
-  : QDialog(parent), db_(std::move(db)), taskId_(taskId)
-{
+                               unsigned long taskId, QWidget *parent)
+    : QDialog(parent), db_(std::move(db)), taskId_(taskId) {
   setWindowTitle("Edit task");
   resize(520, 420);
 
-  auto* root = new QVBoxLayout(this);
+  auto *root = new QVBoxLayout(this);
 
-  auto* form = new QFormLayout();
+  auto *form = new QFormLayout();
 
   title_ = new QLineEdit(this);
   desc_ = new QTextEdit(this);
 
   // Category row: combobox + Add button
-  auto* catRow = new QWidget(this);
-  auto* catLayout = new QHBoxLayout(catRow);
+  auto *catRow = new QWidget(this);
+  auto *catLayout = new QHBoxLayout(catRow);
   catLayout->setContentsMargins(0, 0, 0, 0);
   catLayout->setSpacing(8);
 
@@ -56,9 +54,11 @@ TaskEditDialog::TaskEditDialog(std::shared_ptr<odb::sqlite::database> db,
 
   root->addLayout(form);
 
-  connect(addCategoryBtn_, &QPushButton::clicked, this, [this]{ onAddCategory(); });
+  connect(addCategoryBtn_, &QPushButton::clicked, this,
+          [this] { onAddCategory(); });
 
-  auto* buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, this);
+  auto *buttons = new QDialogButtonBox(
+      QDialogButtonBox::Save | QDialogButtonBox::Cancel, this);
   connect(buttons, &QDialogButtonBox::accepted, this, &TaskEditDialog::accept);
   connect(buttons, &QDialogButtonBox::rejected, this, &TaskEditDialog::reject);
   root->addWidget(buttons);
@@ -67,9 +67,7 @@ TaskEditDialog::TaskEditDialog(std::shared_ptr<odb::sqlite::database> db,
 }
 std::optional<TaskEditDialog::TaskSnapshot>
 TaskEditDialog::editTask(std::shared_ptr<odb::sqlite::database> db,
-                         unsigned long taskId,
-                         QWidget* parent)
-{
+                         unsigned long taskId, QWidget *parent) {
   if (!db || taskId == 0)
     return std::nullopt;
 
@@ -79,10 +77,8 @@ TaskEditDialog::editTask(std::shared_ptr<odb::sqlite::database> db,
 
   return dlg.snapshot_;
 }
-void TaskEditDialog::load()
-{
-  try
-  {
+void TaskEditDialog::load() {
+  try {
     odb::transaction t(db_->begin());
 
     std::unique_ptr<Task> task(db_->load<Task>(taskId_));
@@ -98,29 +94,28 @@ void TaskEditDialog::load()
     desc_->setPlainText(QString::fromStdString(task->description()));
 
     const auto cat = task->category_id();
-    const qulonglong catId = cat.null() ? 0 : static_cast<qulonglong>(cat.get());
+    const qulonglong catId =
+        cat.null() ? 0 : static_cast<qulonglong>(cat.get());
 
     int idx = category_->findData(QVariant::fromValue<qulonglong>(catId));
-    if (idx < 0) idx = 0;
+    if (idx < 0)
+      idx = 0;
     category_->setCurrentIndex(idx);
 
     t.commit();
 
     if (addCategoryBtn_)
       addCategoryBtn_->setEnabled(true);
-  }
-  catch (const std::exception& e)
-  {
-    QMessageBox::critical(this, "Database Error", QString("Failed to load task: %1").arg(e.what()));
+  } catch (const std::exception &e) {
+    QMessageBox::critical(this, "Database Error",
+                          QString("Failed to load task: %1").arg(e.what()));
     reject();
   }
 }
 
-void TaskEditDialog::accept()
-{
+void TaskEditDialog::accept() {
   const QString newTitle = title_->text().trimmed();
-  if (newTitle.isEmpty())
-  {
+  if (newTitle.isEmpty()) {
     QMessageBox::warning(this, "Validation", "Title cannot be empty.");
     return;
   }
@@ -128,12 +123,12 @@ void TaskEditDialog::accept()
   const QString newDesc = desc_->toPlainText();
 
   const qulonglong rawCatId = category_->currentData().toULongLong();
-  const std::optional<unsigned long> newCatId = (rawCatId == 0)
-    ? std::nullopt
-    : std::optional<unsigned long>(static_cast<unsigned long>(rawCatId));
+  const std::optional<unsigned long> newCatId =
+      (rawCatId == 0)
+          ? std::nullopt
+          : std::optional<unsigned long>(static_cast<unsigned long>(rawCatId));
 
-  try
-  {
+  try {
     odb::transaction t(db_->begin());
 
     std::unique_ptr<Task> task(db_->load<Task>(taskId_));
@@ -157,77 +152,78 @@ void TaskEditDialog::accept()
     snapshot_.categoryId = newCatId;
 
     t.commit();
-  }
-  catch (const std::exception& e)
-  {
-    QMessageBox::critical(this, "Database Error", QString("Failed to save task: %1").arg(e.what()));
+  } catch (const std::exception &e) {
+    QMessageBox::critical(this, "Database Error",
+                          QString("Failed to save task: %1").arg(e.what()));
     return;
   }
 
   QDialog::accept();
 }
-void TaskEditDialog::reloadCategoriesNoTx(unsigned long boardId)
-{
+void TaskEditDialog::reloadCategoriesNoTx(unsigned long boardId) {
   category_->clear();
   category_->addItem("None", QVariant::fromValue<qulonglong>(0));
 
   using CQ = odb::query<TaskCategory>;
   std::vector<TaskCategory> cats;
-  for (const auto& c : db_->query<TaskCategory>(CQ::board_id == boardId))
+  for (const auto &c : db_->query<TaskCategory>(CQ::board_id == boardId))
     cats.push_back(c);
 
-  std::sort(cats.begin(), cats.end(), [](const TaskCategory& a, const TaskCategory& b)
-  {
-    if (a.sort_order() != b.sort_order())
-      return a.sort_order() < b.sort_order();
-    return a.id() < b.id();
-  });
+  std::sort(cats.begin(), cats.end(),
+            [](const TaskCategory &a, const TaskCategory &b) {
+              if (a.sort_order() != b.sort_order())
+                return a.sort_order() < b.sort_order();
+              return a.id() < b.id();
+            });
 
-  for (const auto& c : cats)
+  for (const auto &c : cats)
     category_->addItem(QString::fromStdString(c.name()),
                        QVariant::fromValue<qulonglong>(c.id()));
 }
 
-void TaskEditDialog::reloadCategoriesTx(unsigned long boardId)
-{
+void TaskEditDialog::reloadCategoriesTx(unsigned long boardId) {
   odb::transaction t(db_->begin());
   reloadCategoriesNoTx(boardId);
   t.commit();
 }
-void TaskEditDialog::onAddCategory()
-{
+void TaskEditDialog::onAddCategory() {
   if (!db_ || boardId_ == 0)
     return;
 
   bool ok = false;
-  QString name = QInputDialog::getText(this, "Add category", "Name:", QLineEdit::Normal, "", &ok);
-  if (!ok) return;
+  QString name = QInputDialog::getText(this, "Add category",
+                                       "Name:", QLineEdit::Normal, "", &ok);
+  if (!ok)
+    return;
   name = name.trimmed();
-  if (name.isEmpty()) return;
+  if (name.isEmpty())
+    return;
 
-  QColor chosen = QColorDialog::getColor(Qt::white, this, "Choose color (optional)");
-  const QString colorStr = chosen.isValid() ? chosen.name(QColor::HexRgb) : QString(); // "" => no color
+  QColor chosen =
+      QColorDialog::getColor(Qt::white, this, "Choose color (optional)");
+  const QString colorStr = chosen.isValid() ? chosen.name(QColor::HexRgb)
+                                            : QString(); // "" => no color
 
   unsigned long newCatId = 0;
 
-  try
-  {
+  try {
     odb::transaction t(db_->begin());
 
     int maxOrder = -1;
     using CQ = odb::query<TaskCategory>;
-    for (const auto& c : db_->query<TaskCategory>(CQ::board_id == boardId_))
+    for (const auto &c : db_->query<TaskCategory>(CQ::board_id == boardId_))
       maxOrder = std::max(maxOrder, c.sort_order());
 
-    TaskCategory cat(boardId_, name.toStdString(), maxOrder + 1, colorStr.toStdString());
+    TaskCategory cat(boardId_, name.toStdString(), maxOrder + 1,
+                     colorStr.toStdString());
     db_->persist(cat);
     newCatId = cat.id();
 
     t.commit();
-  }
-  catch (const std::exception& e)
-  {
-    QMessageBox::critical(this, "Database Error", QString("Failed to create category: %1").arg(e.what()));
+  } catch (const std::exception &e) {
+    QMessageBox::critical(
+        this, "Database Error",
+        QString("Failed to create category: %1").arg(e.what()));
     return;
   }
 

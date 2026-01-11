@@ -71,7 +71,8 @@ public:
 
   // Categories
   virtual std::vector<CategoryDto> listCategories(Id boardId) = 0;
-  virtual Id createCategory(Id boardId, const std::string& name, const std::string& color = {}) = 0;
+  virtual Id createCategory(Id boardId, const std::string &name,
+                            const std::string &color = {}) = 0;
   virtual void deleteCategory(Id categoryId) = 0;
 
   // Task <-> Category

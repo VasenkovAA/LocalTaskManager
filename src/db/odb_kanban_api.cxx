@@ -62,8 +62,7 @@ core::TaskDto to_dto(const Task &t) {
 
   return d;
 }
-core::CategoryDto to_dto(const TaskCategory& c)
-{
+core::CategoryDto to_dto(const TaskCategory &c) {
   core::CategoryDto d;
   d.id = to_id(c.id());
   d.boardId = to_id(c.board_id());
@@ -209,7 +208,7 @@ void OdbKanbanApi::deleteBoard(core::Id boardId) {
     db_->erase<KanbanColumn>(col.id());
 
   using CatQ = odb::query<TaskCategory>;
-  for (const auto& c : db_->query<TaskCategory>(CatQ::board_id == bid))
+  for (const auto &c : db_->query<TaskCategory>(CatQ::board_id == bid))
     db_->erase<TaskCategory>(c.id());
 
   db_->erase<KanbanBoard>(bid);

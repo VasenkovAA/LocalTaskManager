@@ -40,7 +40,6 @@ OpenResult openDatabaseReadOrCreate(const QString &dbPath) {
         ("DB path points to a directory: " + clean).toStdString());
 
   const bool exists = fi.exists();
-  const bool exists = fi.exists();
 
   if (exists && fi.size() == 0)
     throw std::runtime_error(
@@ -64,8 +63,7 @@ OpenResult openDatabaseReadOrCreate(const QString &dbPath) {
   return out;
 }
 
-void ensureSchemaBestEffort(odb::sqlite::database& db)
-{
+void ensureSchemaBestEffort(odb::sqlite::database &db) {
   odb::transaction t(db.begin());
   odb::schema_catalog::create_schema(db);
   t.commit();

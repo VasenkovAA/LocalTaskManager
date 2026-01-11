@@ -1,15 +1,14 @@
 #ifndef KANBAN_COLUMN_HXX
 #define KANBAN_COLUMN_HXX
 
+#include <odb/core.hxx>
 #include <string>
 #include <utility>
-#include <odb/core.hxx>
 
 #pragma db object
 #pragma db index member(board_id_)
-class KanbanColumn
-{
-  #pragma db index("idx_column_board_sort") members(board_id_, sort_order_)
+class KanbanColumn {
+#pragma db index("idx_column_board_sort") members(board_id_, sort_order_)
 public:
   KanbanColumn() = default;
 
@@ -21,7 +20,7 @@ public:
   unsigned long board_id() const { return board_id_; }
   void board_id(unsigned long v) { board_id_ = v; }
 
-  const std::string& name() const { return name_; }
+  const std::string &name() const { return name_; }
   void name(std::string v) { name_ = std::move(v); }
 
   int sort_order() const { return sort_order_; }
@@ -30,7 +29,7 @@ public:
 private:
   friend class odb::access;
 
-  #pragma db id auto
+#pragma db id auto
   unsigned long id_{0};
 
   unsigned long board_id_{0};

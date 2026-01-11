@@ -1,13 +1,12 @@
 #ifndef KANBAN_BOARD_HXX
 #define KANBAN_BOARD_HXX
 
+#include <odb/core.hxx>
 #include <string>
 #include <utility>
-#include <odb/core.hxx>
 
 #pragma db object
-class KanbanBoard
-{
+class KanbanBoard {
 public:
   KanbanBoard() = default;
 
@@ -16,16 +15,16 @@ public:
 
   unsigned long id() const { return id_; }
 
-  const std::string& name() const { return name_; }
+  const std::string &name() const { return name_; }
   void name(std::string v) { name_ = std::move(v); }
 
-  const std::string& description() const { return description_; }
+  const std::string &description() const { return description_; }
   void description(std::string v) { description_ = std::move(v); }
 
 private:
   friend class odb::access;
 
-  #pragma db id auto
+#pragma db id auto
   unsigned long id_{0};
 
   std::string name_;
